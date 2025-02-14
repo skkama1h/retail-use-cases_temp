@@ -93,7 +93,7 @@ def OVMiniCPMV26Worker(model_dir: str,
     if "GPU" == device:
         # Cache compiled models on disk for GPU to save time on the
         # next run. It's not beneficial for CPU.
-        enable_compile_cache["CACHE_DIR"] = "vlm_cache"
+        enable_compile_cache["CACHE_DIR"] = "./cache/vlm_cache"
     
     pipe = openvino_genai.VLMPipeline(model_dir, device, **enable_compile_cache)
 

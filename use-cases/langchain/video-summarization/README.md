@@ -66,11 +66,11 @@ View the Chunk Summaries, Merged Summaries and the Anomaly Score in the `output_
 You can run the entire pipeline using a single script. This script will run the video summarization pipeline 
 and then merge the chunk summaries and assign an anomaly score.
 
-Please open the `driver.sh` and edit three variables:
+Please open the `run.sh` and edit three variables:
 * `input_video` - path to the video file
-
-If you are using a different model for the VLM/LLM, **only then edit the following variables**:
 * `vlm_model` - path to the MiniCPM openVINO optimized model 
+
+If you are using a different model for the LLM/Summary Merger, **only then edit the following variables**:
 * `llm_model` - path to the Llama openVINO optimized model 
 
-Then run the script: `./driver.sh`
+Then run the script: `./run.sh`

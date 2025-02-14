@@ -178,6 +178,7 @@ if __name__ == "__main__":
         output_file.write_text(f"python {sys.argv}")
 
     # create instance of SummaryMerger class and merge summaries
+    print("herer---------------------", args.model_id)
     summary_merger = SummaryMerger(
         model_id=args.model_id,
         device=args.device,
