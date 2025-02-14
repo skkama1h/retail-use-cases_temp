@@ -122,10 +122,11 @@ if __name__ == '__main__':
                 f"Start time: {doc.metadata['start_time']} End time: {doc.metadata['end_time']}\n" + output
             ))
 
-        # save chunk summaries to a JSON file for post-processing
-        save_chunk_summaries(video_name=Path(args.video_file).stem, summaries=chunk_summaries)
         output_handler("\nChunk Inference time: {} sec\n".format(time.time() - chunk_st_time), filename=args.outfile,
                        mode='a')
+      
+    # save chunk summaries to a JSON file for post-processing
+    save_chunk_summaries(video_name=Path(args.video_file).stem, summaries=chunk_summaries)
 
     output_handler(
         "\nTotal Inference time (Video loading + Chunk Summaries): {} sec\n".format(time.time() - tot_st_time),
