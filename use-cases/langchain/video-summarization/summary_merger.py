@@ -14,25 +14,27 @@ class SummaryMerger:
     """
     Merge summaries generated from multiple chunks of text and generate a final summary with an anomaly score.
     """
-    def __init__(self, model_id="llmware/llama-3.2-3b-instruct-ov", device="CPU", max_new_tokens=512, batch_size=5, chain=None):
+
+    def __init__(self, model_id="llmware/llama-3.2-3b-instruct-ov", device="CPU", max_new_tokens=512, batch_size=5,
+                 chain=None):
         self.ov_llm = None
 
         if chain is not None:
             # use miniCPM chain passed from summarizers
             print("Running summary merger with pre-built LVM chain\n")
             self.chain = chain
-        
+
         else:
             print(f"Running summary merger with specified {model_id}")
 
             # openVINO configs for optimized model, apply uint8 quantization for lowering precision of key/value cache in LLMs.
             # apply dynamic quantization for activations
             ov_config = {"PERFORMANCE_HINT": "LATENCY",
-                        "NUM_STREAMS": "1",
-                        "CACHE_DIR": "./cache/ov_llama_cache",
-                        "KV_CACHE_PRECISION": "u8",
-                        "DYNAMIC_QUANTIZATION_GROUP_SIZE": "32",
-                        }
+                         "NUM_STREAMS": "1",
+                         "CACHE_DIR": "./cache/ov_llama_cache",
+                         "KV_CACHE_PRECISION": "u8",
+                         "DYNAMIC_QUANTIZATION_GROUP_SIZE": "32",
+                         }
             # use langchain openVINO pipeline to load the model
             self.ov_llm = HuggingFacePipeline.from_model_id(
                 model_id=model_id,
@@ -175,7 +177,7 @@ if __name__ == "__main__":
 
     parser.add_argument("input_file", type=str,
                         help="Path to the chunk summaries file you want to summarize.")
-    # optional model argument, uses lmware/llama-3.2-3b-instruct-ov by default
+    # optional model argument, uses llmware/llama-3.2-3b-instruct-ov by default
     parser.add_argument("-m", "--model_id", type=str,
                         help="Path to openvino-genai optimized model (local directory or HF id).",
                         default="llmware/llama-3.2-3b-instruct-ov")

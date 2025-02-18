@@ -1,14 +1,14 @@
+import argparse
 import json
 import os
 import sys
 import time
-import argparse
 from pathlib import Path
 
 from langchain.prompts import PromptTemplate
-from ov_lvm_wrapper import OVMiniCPMV26Worker
 from langchain_community.document_loaders.video import VideoChunkLoader
-from summary_merger import SummaryMerger
+
+from ov_lvm_wrapper import OVMiniCPMV26Worker
 
 
 def output_handler(text: str,
@@ -36,7 +36,7 @@ def save_chunk_summaries(video_name, summaries):
 
 if __name__ == '__main__':
     # Parse inputs
-    parser_txt = "Generate video summarization using Langchanin, OpenVINO-genai, and MiniCPM-V-2_6."
+    parser_txt = "Generate video summarization using LangChain, OpenVINO-genai, and MiniCPM-V-2_6."
     parser = argparse.ArgumentParser(parser_txt)
     parser.add_argument("video_file", type=str,
                         help='Path to video you want to summarize.')
@@ -125,12 +125,14 @@ if __name__ == '__main__':
 
         output_handler("\nChunk Inference time: {} sec\n".format(time.time() - chunk_st_time), filename=args.outfile,
                        mode='a')
-    
+
     # save chunk summaries to a JSON file for post-processing
     video_name = Path(args.video_file).stem
     save_chunk_summaries(video_name=video_name, summaries=chunk_summaries)
 
-    output_handler("\nTotal Inference time (Video loading + Chunk Summaries): {} sec\n".format(time.time() - tot_st_time), filename=args.outfile, mode='a')
+    output_handler(
+        "\nTotal Inference time (Video loading + Chunk Summaries): {} sec\n".format(time.time() - tot_st_time),
+        filename=args.outfile, mode='a')
 
     # merge summaries and assign anomaly score, run on GPU - default is CPU
     # summary_merger = SummaryMerger(chain=chain, device="GPU")

@@ -5,6 +5,7 @@ output/
 .vscode
 docs/sitemap.xml.gz
 docs/*
+.idea
 
 benchmark-scripts/results/
 models/

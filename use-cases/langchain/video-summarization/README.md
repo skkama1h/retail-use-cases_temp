@@ -74,3 +74,22 @@ If you are using a different model for the LLM/Summary Merger, **only then edit 
 * `llm_model` - path to the Llama openVINO optimized model 
 
 Then run the script: `./run.sh`
+
+## Run Video Summarization and Summary Merger using miniCPM only
+
+The script `video_summarizer.py` can also be used to run the video summarization pipeline using only MiniCPM. To do so,
+
+1. Open `video_summarizer.py` and **uncomment** the following lines:
+```
+    # summary_merger = SummaryMerger(chain=chain, device="GPU")
+    # summary_merger.merge_summaries(Path(f"output/{video_name}.json"))
+```
+
+2. Next, open `run.sh` and **comment** the following line:
+```
+python summary_merger.py "$output_dir/$summaries_file" -d "GPU"
+```
+
+3. Run the script: `./run.sh`
+
+4. View the chunk summaries, anomaly score in the `output_dir/<input video name>.json` file.
