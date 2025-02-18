@@ -8,6 +8,7 @@ from pathlib import Path
 from langchain.prompts import PromptTemplate
 from ov_lvm_wrapper import OVMiniCPMV26Worker
 from langchain_community.document_loaders.video import VideoChunkLoader
+from summary_merger import SummaryMerger
 
 
 def output_handler(text: str,
@@ -124,10 +125,13 @@ if __name__ == '__main__':
 
         output_handler("\nChunk Inference time: {} sec\n".format(time.time() - chunk_st_time), filename=args.outfile,
                        mode='a')
-      
+    
     # save chunk summaries to a JSON file for post-processing
-    save_chunk_summaries(video_name=Path(args.video_file).stem, summaries=chunk_summaries)
+    video_name = Path(args.video_file).stem
+    save_chunk_summaries(video_name=video_name, summaries=chunk_summaries)
 
-    output_handler(
-        "\nTotal Inference time (Video loading + Chunk Summaries): {} sec\n".format(time.time() - tot_st_time),
-        filename=args.outfile, mode='a')
+    output_handler("\nTotal Inference time (Video loading + Chunk Summaries): {} sec\n".format(time.time() - tot_st_time), filename=args.outfile, mode='a')
+
+    # merge summaries and assign anomaly score, run on GPU - default is CPU
+    # summary_merger = SummaryMerger(chain=chain, device="GPU")
+    # summary_merger.merge_summaries(Path(f"output/{video_name}.json"))

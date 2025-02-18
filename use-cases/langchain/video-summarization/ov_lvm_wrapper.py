@@ -66,8 +66,8 @@ class OVMiniCPMV26Wrapper(LLM):
         if video_fh == '':
             self.ovpipe.start_chat()
             generated_text = self.ovpipe.generate(question,
-                                 generation_config=self.generation_config,
-                                 streamer=streamer)
+                                 generation_config=self.generation_config)
+                                 # streamer=streamer)
 
         # Process video and text
         else:

@@ -14,51 +14,61 @@ class SummaryMerger:
     """
     Merge summaries generated from multiple chunks of text and generate a final summary with an anomaly score.
     """
-    def __init__(self, model_id, device="CPU", max_new_tokens=512, batch_size=5):
-        # openVINO configs for optimized model, apply uint8 quantization for lowering precision of key/value cache in LLMs.
-        # apply dynamic quantization for activations
-        ov_config = {"PERFORMANCE_HINT": "LATENCY",
-                     "NUM_STREAMS": "1",
-                     "CACHE_DIR": "./cache/ov_llama_cache",
-                     "KV_CACHE_PRECISION": "u8",
-                     "DYNAMIC_QUANTIZATION_GROUP_SIZE": "32",
-                     }
-        # use langchain openVINO pipeline to load the model
-        self.ov_llm = HuggingFacePipeline.from_model_id(
-            model_id=model_id,
-            task="text-generation",
-            backend="openvino",
-            model_kwargs={
-                "device": device,
-                "ov_config": ov_config,
-                "trust_remote_code": True
-            },
-            pipeline_kwargs={
-                "max_new_tokens": max_new_tokens,
-                "do_sample": True,
-                "top_k": 10,
-                "temperature": 0.7,
-                "return_full_text": False,
-                "repetition_penalty": 1.0,
-                "encoder_repetition_penalty": 1.0
-            })
-        self.ov_llm.pipeline.tokenizer.pad_token_id = self.ov_llm.pipeline.tokenizer.eos_token_id
+    def __init__(self, model_id="llmware/llama-3.2-3b-instruct-ov", device="CPU", max_new_tokens=512, batch_size=5, chain=None):
+        self.ov_llm = None
 
-        template = """Write a response that appropriately completes the request. 
-        ### Instruction: Please create a summary of the overall video highlighting all the important information. How would you rate the scene described on a scale from 0.0 to 1.0, with 0.0 representing a standard scene and 1.0 denoting a scene with suspicious activities? 
-        Please organize your answer according to this example:
+        if chain is not None:
+            # use miniCPM chain passed from summarizers
+            print("Running summary merger with pre-built LVM chain\n")
+            self.chain = chain
+        
+        else:
+            print(f"Running summary merger with specified {model_id}")
 
-        **Overall Summary**: A summary of the entire text description in about five sentences or less.
-        **Activity Observed**: Key actions observed in the video.
-        **Potential Suspicious Activity**: List any activities that might indicate suspicious behavior.
-        **Anomaly Score**: A number between 0.0 and 1.0 based on your analysis.
+            # openVINO configs for optimized model, apply uint8 quantization for lowering precision of key/value cache in LLMs.
+            # apply dynamic quantization for activations
+            ov_config = {"PERFORMANCE_HINT": "LATENCY",
+                        "NUM_STREAMS": "1",
+                        "CACHE_DIR": "./cache/ov_llama_cache",
+                        "KV_CACHE_PRECISION": "u8",
+                        "DYNAMIC_QUANTIZATION_GROUP_SIZE": "32",
+                        }
+            # use langchain openVINO pipeline to load the model
+            self.ov_llm = HuggingFacePipeline.from_model_id(
+                model_id=model_id,
+                task="text-generation",
+                backend="openvino",
+                model_kwargs={
+                    "device": device,
+                    "ov_config": ov_config,
+                    "trust_remote_code": True
+                },
+                pipeline_kwargs={
+                    "max_new_tokens": max_new_tokens,
+                    "do_sample": True,
+                    "top_k": 10,
+                    "temperature": 0.7,
+                    "return_full_text": False,
+                    "repetition_penalty": 1.0,
+                    "encoder_repetition_penalty": 1.0
+                })
+            self.ov_llm.pipeline.tokenizer.pad_token_id = self.ov_llm.pipeline.tokenizer.eos_token_id
 
-        ### Input: {question}
-        ### Answer:"""
+            template = """Write a response that appropriately completes the request. 
+            ### Instruction: Please create a summary of the overall video highlighting all the important information. How would you rate the scene described on a scale from 0.0 to 1.0, with 0.0 representing a standard scene and 1.0 denoting a scene with suspicious activities? 
+            Please organize your answer according to this example:
 
-        self.prompt = PromptTemplate.from_template(template)
-        # generation_config = {"skip_prompt": True, "pipeline_kwargs": {"max_new_tokens": max_new_tokens}}
-        self.chain = self.prompt | self.ov_llm
+            **Overall Summary**: A summary of the entire text description in about five sentences or less.
+            **Activity Observed**: Key actions observed in the video.
+            **Potential Suspicious Activity**: List any activities that might indicate suspicious behavior.
+            **Anomaly Score**: A number between 0.0 and 1.0 based on your analysis.
+
+            ### Input: {question}
+            ### Answer:"""
+
+            self.prompt = PromptTemplate.from_template(template)
+            generation_config = {"skip_prompt": True, "pipeline_kwargs": {"max_new_tokens": max_new_tokens}}
+            self.chain = self.prompt | self.ov_llm
 
         self.batch_size = batch_size
 
@@ -116,8 +126,14 @@ class SummaryMerger:
         print(f"\n\n**Final Anomaly Score**: {final_anomaly_score:.2f}")
 
         # write overall summary and anomaly score to JSON file
-        summaries["overall_summary"] = final_summary + f"\n\n**Final Anomaly Score**: {final_anomaly_score:.2f}"
-        summaries["anomaly_score"] = f"{final_anomaly_score:.2f}"
+        summaries.update(
+            {
+                "overall_summary": final_summary + f"\n\n**Final Anomaly Score**: {final_anomaly_score:.2f}",
+                "anomaly_score": f"{final_anomaly_score:.2f}"
+            }
+        )
+        # summaries["overall_summary"] = final_summary + f"\n\n**Final Anomaly Score**: {final_anomaly_score:.2f}"
+        # summaries["anomaly_score"] = f"{final_anomaly_score:.2f}"
 
         with open(summaries_file, "w", encoding="utf-8") as handle:
             json.dump(summaries, handle, indent=4, ensure_ascii=False)
@@ -125,12 +141,22 @@ class SummaryMerger:
         print(f"Time taken for merge-summarize {summaries_file.name}: {time.time() - start_time:.2f} seconds")
 
     def summarize_batch(self, texts):
-        text = " ".join(texts)
-        merged = self.chain.invoke({"question": text})
-        '''for chunk in self.chain.stream({"question": text}):
-            # print(chunk, end="", flush=True)
-            merged += chunk'''
-        # print("\n")
+        if not self.ov_llm:
+            summary_prompt = """
+            The following are summaries of subsections of a video. Each subsection summary is separated by the delimiter ">|<".
+            Each subsection summary will start with the start and end timestamps of the subsection relative to the full video.
+            Please create a summary of all the subsections.
+            Also provide an anomaly score on a scale from 0.0 (normal) to 1.0 (highly suspicious).
+            The output should be formatted as follows:\n\n**Summary**: Summary of the video\n**Anomaly Score**: The score:\n\n{}"""
+
+            merged = self.chain.invoke({"video": "", "question": summary_prompt.format("\n>|<\n".join(texts))})
+        else:
+            text = " ".join(texts)
+            merged = self.chain.invoke({"question": text})
+            '''for chunk in self.chain.stream({"question": text}):
+                # print(chunk, end="", flush=True)
+                merged += chunk'''
+            # print("\n")
         return merged.strip()
 
     @staticmethod
@@ -178,7 +204,6 @@ if __name__ == "__main__":
         output_file.write_text(f"python {sys.argv}")
 
     # create instance of SummaryMerger class and merge summaries
-    print("herer---------------------", args.model_id)
     summary_merger = SummaryMerger(
         model_id=args.model_id,
         device=args.device,

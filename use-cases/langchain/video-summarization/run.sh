@@ -9,7 +9,7 @@ conda activate ovlangvidsumm
 # ###################################
 
 # change the input video path to the video you want to analyze
-input_video=$HOME/skk/vids/12_theft.mp4
+input_video=$HOME/skk/vids/bb_chunk_small.mp4
 # change the VLM path to the openVINO optimized dir
 vlm_model=$HOME/skk/models/MiniCPM_INT4/
 
