@@ -24,6 +24,8 @@ class SummaryMerger:
             print("Running summary merger with pre-built LVM chain\n")
             self.chain = chain
 
+            # modified prompt for minicpm, minicpm doesn't adhere to the llama prompt and always skips anomaly scores. 
+            # this is the only format that works.
             self.summary_prompt = """Write a response that appropriately completes the request.
             ### Instruction: Please create a summary of the overall video highlighting all the important information. How would you rate the scene described on a scale from 0.0 to 1.0, with 0.0 representing a standard scene and 1.0 denoting a scene with suspicious activities?
             Please organize your answer according to this example:
