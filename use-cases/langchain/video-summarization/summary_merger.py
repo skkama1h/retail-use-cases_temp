@@ -24,8 +24,15 @@ class SummaryMerger:
             print("Running summary merger with pre-built LVM chain\n")
             self.chain = chain
 
+            self.summary_prompt = """Write a response that appropriately completes the request.
+            ### Instruction: Please create a summary of the overall video highlighting all the important information. How would you rate the scene described on a scale from 0.0 to 1.0, with 0.0 representing a standard scene and 1.0 denoting a scene with suspicious activities?
+            Please organize your answer according to this example:
+            **Summary**: A summary of the entire text description highlighting all the important details in less than 10 sentences.
+            **Anomaly Score**: A number between 0.0 and 1.0 based on your analysis.
+            ### Input: {}\n\n"""
+
         else:
-            print(f"Running summary merger with specified {model_id}")
+            print(f"Running summary merger with specified {model_id}\n")
 
             # openVINO configs for optimized model, apply uint8 quantization for lowering precision of key/value cache in LLMs.
             # apply dynamic quantization for activations
@@ -56,7 +63,7 @@ class SummaryMerger:
                 })
             self.ov_llm.pipeline.tokenizer.pad_token_id = self.ov_llm.pipeline.tokenizer.eos_token_id
 
-            template = """Write a response that appropriately completes the request. 
+            self.summary_prompt = """Write a response that appropriately completes the request. 
             ### Instruction: Please create a summary of the overall video highlighting all the important information. How would you rate the scene described on a scale from 0.0 to 1.0, with 0.0 representing a standard scene and 1.0 denoting a scene with suspicious activities? 
             Please organize your answer according to this example:
 
@@ -68,8 +75,8 @@ class SummaryMerger:
             ### Input: {question}
             ### Answer:"""
 
-            self.prompt = PromptTemplate.from_template(template)
-            generation_config = {"skip_prompt": True, "pipeline_kwargs": {"max_new_tokens": max_new_tokens}}
+            self.prompt = PromptTemplate.from_template(self.summary_prompt)
+            # generation_config = {"skip_prompt": True, "pipeline_kwargs": {"max_new_tokens": max_new_tokens}}
             self.chain = self.prompt | self.ov_llm
 
         self.batch_size = batch_size
@@ -113,7 +120,6 @@ class SummaryMerger:
             final_summary = self.summarize_batch(batch_summaries)
         else:
             final_summary = batch_summaries[0]
-        # final_anomaly_score = sum(anomaly_scores) / len(anomaly_scores)
 
         # extract anomaly score from final summary using a regex pattern
         final_anomaly_score = self.extract_anomaly_score(final_summary)
@@ -124,8 +130,7 @@ class SummaryMerger:
 
         print("--------------------------------------------")
         print(final_summary)
-        # print("--------------------------------------------")
-        print(f"\n\n**Final Anomaly Score**: {final_anomaly_score:.2f}")
+        #print(f"\n\n**Final Anomaly Score**: {final_anomaly_score:.2f}")
 
         # write overall summary and anomaly score to JSON file
         summaries.update(
@@ -134,8 +139,6 @@ class SummaryMerger:
                 "anomaly_score": f"{final_anomaly_score:.2f}"
             }
         )
-        # summaries["overall_summary"] = final_summary + f"\n\n**Final Anomaly Score**: {final_anomaly_score:.2f}"
-        # summaries["anomaly_score"] = f"{final_anomaly_score:.2f}"
 
         with open(summaries_file, "w", encoding="utf-8") as handle:
             json.dump(summaries, handle, indent=4, ensure_ascii=False)
@@ -143,17 +146,10 @@ class SummaryMerger:
         print(f"Time taken for merge-summarize {summaries_file.name}: {time.time() - start_time:.2f} seconds")
 
     def summarize_batch(self, texts):
+        text = " ".join(texts)
         if not self.ov_llm:
-            summary_prompt = """
-            The following are summaries of subsections of a video. Each subsection summary is separated by the delimiter ">|<".
-            Each subsection summary will start with the start and end timestamps of the subsection relative to the full video.
-            Please create a summary of all the subsections.
-            Also provide an anomaly score on a scale from 0.0 (normal) to 1.0 (highly suspicious).
-            The output should be formatted as follows:\n\n**Summary**: Summary of the video\n**Anomaly Score**: The score:\n\n{}"""
-
-            merged = self.chain.invoke({"video": "", "question": summary_prompt.format("\n>|<\n".join(texts))})
+            merged = self.chain.invoke({"video": "", "question": self.summary_prompt.format(text)})
         else:
-            text = " ".join(texts)
             merged = self.chain.invoke({"question": text})
             '''for chunk in self.chain.stream({"question": text}):
                 # print(chunk, end="", flush=True)
